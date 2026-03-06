@@ -1,0 +1,19 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+}
+
+.container {
+  max-width: 600px;
+  margin: auto;
+  padding: 20px;
+  background: white;
+}
+
+button {
+  margin-top: 10px;
+}
+
+.result {
+  margin-top: 20px;
+}
