@@ -1,19 +1,132 @@
-body {
-  font-family: Arial, sans-serif;
-  background: #f4f4f4;
+body{
+  margin:0;
+  font-family:"Inter", sans-serif;
+
+  background-image:url("https://petapixel.com/assets/uploads/2015/03/MG_8950.jpg");
+  background-size:cover;
+  background-position:center;
+  background-attachment:fixed;
 }
 
-.container {
-  max-width: 600px;
-  margin: auto;
-  padding: 20px;
-  background: white;
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.45);
+  z-index:-1;
 }
 
-button {
-  margin-top: 10px;
+.app{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
 }
 
-.result {
-  margin-top: 20px;
+.card{
+  width:600px;
+  background:white;
+  border-radius:12px;
+  padding:35px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.25);
+}
+
+.title{
+  text-align:center;
+  font-size:28px;
+  margin-bottom:5px;
+}
+
+.subtitle{
+  text-align:center;
+  margin-bottom:25px;
+  color:#666;
+}
+
+.upload-section{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  align-items:center;
+}
+
+/* Upload button */
+
+.upload-btn{
+  background:#6c63ff;
+  color:white;
+  padding:12px 22px;
+  border:none;
+  border-radius:6px;
+  font-weight:600;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+.upload-btn:hover{
+  background:#564fd8;
+}
+
+/* Analyze button */
+
+.analyze-btn{
+  background:#2a9d8f;
+  color:white;
+  padding:12px 22px;
+  border:none;
+  border-radius:6px;
+  font-weight:600;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+.analyze-btn:hover{
+  background:#21867a;
+}
+
+.analyze-btn:disabled{
+  background:#aaa;
+  cursor:not-allowed;
+}
+
+.filename{
+  font-size:14px;
+}
+
+.error{
+  color:red;
+}
+
+.result{
+  margin-top:25px;
+}
+
+.prediction{
+  text-align:center;
+  font-size:26px;
+}
+
+.pathogenic{
+  color:#e63946;
+}
+
+.benign{
+  color:#2a9d8f;
+}
+
+.confidence{
+  text-align:center;
+}
+
+.model-box,
+.shap-box{
+  background:#f7f8fc;
+  padding:15px;
+  border-radius:8px;
+  margin-top:15px;
+}
+
+.shap-item{
+  display:flex;
+  justify-content:space-between;
 }
