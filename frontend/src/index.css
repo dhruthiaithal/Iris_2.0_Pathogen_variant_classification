@@ -130,3 +130,53 @@ body::before{
   display:flex;
   justify-content:space-between;
 }
+
+.results-title{
+  text-align:center;
+  margin-bottom:15px;
+}
+
+.table-container{
+  max-height:350px;
+  overflow-y:auto;
+}
+
+.variant-table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+.variant-table th{
+  background:#f1f3f9;
+  padding:10px;
+  font-weight:600;
+}
+
+.variant-table td{
+  padding:10px;
+  text-align:center;
+  border-bottom:1px solid #eee;
+}
+
+.variant-row{
+  cursor:pointer;
+  transition:0.2s;
+}
+
+.variant-row:hover{
+  background:#f9f9ff;
+}
+
+.shap-row td{
+  background:#f7f8fc;
+}
+
+.shap-box{
+  padding:15px;
+}
+
+.shap-item{
+  display:flex;
+  justify-content:space-between;
+  padding:4px 0;
+}

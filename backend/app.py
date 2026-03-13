@@ -4,9 +4,28 @@ import json
 import numpy as np
 import pandas as pd
 import shap
+
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from xgboost import XGBClassifier
-# import tensorflow as tf   # Neural network disabled for now
+
+# -------------------------
+# Initialize API
+# -------------------------
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# -------------------------
+# Paths
+# -------------------------
 
 UPLOAD_DIR = "uploads"
 ANNOVAR_DIR = "/root/annovar"
@@ -14,11 +33,10 @@ HUMANDB = f"{ANNOVAR_DIR}/humandb"
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-app = FastAPI()
+# -------------------------
+# Load ML Model
+# -------------------------
 
-# -------------------------
-# Load XGBoost model
-# -------------------------
 xgb_model = XGBClassifier()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -26,89 +44,209 @@ MODEL_DIR = os.path.join(BASE_DIR, "models")
 
 xgb_model.load_model(os.path.join(MODEL_DIR, "xgb_pathogenicity_model.json"))
 
-# Neural network temporarily disabled
-# nn_model = tf.keras.models.load_model(
-#     os.path.join(MODEL_DIR, "nn_pathogenicity_model.keras")
-# )
-
+# -------------------------
 # Load feature list
+# -------------------------
+
 with open(os.path.join(MODEL_DIR, "features.json")) as f:
     FEATURES = json.load(f)
 
-# SHAP explainer
+# -------------------------
+# SHAP Explainer
+# -------------------------
+
 explainer = shap.TreeExplainer(xgb_model)
 
 # -------------------------
-# Utility: Run ANNOVAR
+# Run ANNOVAR
 # -------------------------
+
 def run_annovar(vcf_path, output_prefix):
+
     cmd = [
-        "perl", f"{ANNOVAR_DIR}/table_annovar.pl",
+        "perl",
+        f"{ANNOVAR_DIR}/table_annovar.pl",
         vcf_path,
         HUMANDB,
-        "-buildver", "hg19",
+        "-buildver", "hg38",
         "-out", output_prefix,
         "-remove",
-        "-protocol", "refGene",
-        "-operation", "g",
+        "-protocol", "refGene,gnomad211_exome,dbnsfp30a",
+        "-operation", "g,f,f",
         "-nastring", ".",
         "-vcfinput"
     ]
+
     subprocess.run(cmd, check=True)
+
+# -------------------------
+# API Health Check
+# -------------------------
 
 @app.get("/")
 def home():
     return {"message": "Variant Pathogenicity API is running"}
+
 # -------------------------
-# API Endpoint
+# Prediction Endpoint
 # -------------------------
+
 @app.post("/predict")
 async def predict_variant(file: UploadFile = File(...)):
 
+    # -------------------------
     # Save uploaded VCF
+    # -------------------------
+
     vcf_path = f"{UPLOAD_DIR}/{file.filename}"
 
     with open(vcf_path, "wb") as f:
         f.write(await file.read())
 
-    # Run ANNOVAR annotation
+    # -------------------------
+    # Run ANNOVAR
+    # -------------------------
+
     out_prefix = f"{UPLOAD_DIR}/annotated"
+
     run_annovar(vcf_path, out_prefix)
 
-    # Load annotated variant file
-    df = pd.read_csv(f"{out_prefix}.hg19_multianno.txt", sep="\t")
+    annotated_file = f"{out_prefix}.hg38_multianno.txt"
 
-    # Extract ML features
-    X = df[FEATURES].replace(".", np.nan).astype(float)
+    # -------------------------
+    # Load ANNOVAR output
+    # -------------------------
+
+    df = pd.read_csv(annotated_file, sep="\t")
+
+    # -------------------------
+    # Map ANNOVAR columns to ML features
+    # -------------------------
+
+    feature_map = {
+        "CADD_score": "CADD_phred",
+        "SIFT_score": "SIFT_score",
+        "PolyPhen_score": "Polyphen2_HDIV_score",
+        "gnomAD_AF": "AF",
+        "Conservation_score": "GERP++_RS",
+        "Consequence_encoded": "ExonicFunc.refGene"
+    }
+
+    for model_feature, annovar_feature in feature_map.items():
+
+        if annovar_feature in df.columns:
+            df[model_feature] = df[annovar_feature]
+        else:
+            df[model_feature] = np.nan
+
+    # -------------------------
+    # Derived features
+    # -------------------------
+
+    # SIFT missing flag
+    df["SIFT_missing"] = df["SIFT_score"].isna().astype(int)
+
+    # PolyPhen missing flag
+    df["PolyPhen_missing"] = df["PolyPhen_score"].isna().astype(int)
+
+    # -------------------------
+    # Encode variant consequence
+    # -------------------------
+
+    consequence_map = {
+        "synonymous SNV": 0,
+        "nonsynonymous SNV": 1,
+        "stopgain": 2,
+        "stoploss": 3,
+        "frameshift deletion": 4,
+        "frameshift insertion": 4,
+        "nonframeshift deletion": 5,
+        "nonframeshift insertion": 5
+    }
+
+    df["Consequence_encoded"] = df["Consequence_encoded"].map(consequence_map)
+
+    # -------------------------
+    # Ensure all model features exist
+    # -------------------------
+
+    missing_features = []
+
+    for feature in FEATURES:
+        if feature not in df.columns:
+            df[feature] = np.nan
+            missing_features.append(feature)
+
+    print("Missing features from ANNOVAR:", missing_features)
+
+    # -------------------------
+    # Prepare ML input
+    # -------------------------
+
+    X = df[FEATURES]
+
+    X = X.replace(".", np.nan)
+    X = X.apply(pd.to_numeric, errors="coerce")
+
     X = X.fillna(X.median())
+    X = X.fillna(0)
 
     # -------------------------
-    # Prediction (XGBoost only)
+    # Model Predictions
     # -------------------------
-    xgb_prob = float(xgb_model.predict_proba(X)[0, 1])
 
-    # Neural network removed
-    # nn_prob = float(nn_model.predict(X)[0][0])
-    # final_prob = (xgb_prob + nn_prob) / 2
+    probs = xgb_model.predict_proba(X)[:, 1]
 
-    final_prob = xgb_prob
-
-    label = "Pathogenic" if final_prob >= 0.5 else "Benign"
+    labels = ["Pathogenic" if p >= 0.5 else "Benign" for p in probs]
 
     # -------------------------
     # SHAP Explanation
     # -------------------------
+
     shap_values = explainer.shap_values(X)
 
-    explanation = dict(
-        zip(FEATURES, shap_values[0].tolist())
-    )
+    results = []
+
+    for i in range(len(X)):
+
+        explanation = dict(zip(FEATURES, shap_values[i].tolist()))
+
+        explanation = dict(
+            sorted(
+                explanation.items(),
+                key=lambda x: abs(x[1]),
+                reverse=True
+            )[:10]
+        )
+
+        variant_result = {
+            "variant_index": int(i),
+            "prediction": labels[i],
+            "confidence": float(round(float(probs[i]), 3)),
+            "explanation": explanation
+        }
+
+        # Add genomic coordinates
+        for col in ["Chr", "Start", "End", "Ref", "Alt"]:
+            if col in df.columns:
+
+                value = df.iloc[i][col]
+
+                if isinstance(value, (np.integer, np.int64)):
+                    value = int(value)
+                elif isinstance(value, (np.floating, np.float64)):
+                    value = float(value)
+
+                variant_result[col] = value
+
+        results.append(variant_result)
+
+    # -------------------------
+    # Return API response
+    # -------------------------
 
     return {
-        "prediction": label,
-        "confidence": round(final_prob, 3),
-        "model_breakdown": {
-            "xgboost": round(xgb_prob, 3)
-        },
-        "explanation": explanation
+        "total_variants": len(results),
+        "results": results,
+        "missing_features": missing_features
     }

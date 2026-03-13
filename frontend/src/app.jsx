@@ -5,6 +5,7 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedVariant, setSelectedVariant] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -48,16 +49,19 @@ export default function App() {
     setLoading(false);
   };
 
+  const toggleVariant = (index) => {
+    setSelectedVariant(selectedVariant === index ? null : index);
+  };
+
   return (
     <div className="app">
       <div className="card">
 
         <h1 className="title">Variant Pathogenicity Classifier</h1>
         <p className="subtitle">
-          Upload a VCF file to predict whether the variant is pathogenic.
+          Upload a VCF file to predict whether variants are pathogenic.
         </p>
 
-        {/* Hidden file input */}
         <input
           type="file"
           accept=".vcf"
@@ -83,7 +87,7 @@ export default function App() {
             onClick={uploadVCF}
             disabled={!file || loading}
           >
-            {loading ? "Analyzing Variant..." : "Analyze Variant"}
+            {loading ? "Analyzing Variants..." : "Analyze Variants"}
           </button>
 
         </div>
@@ -93,39 +97,78 @@ export default function App() {
         {result && (
           <div className="result">
 
-            <h2
-              className={
-                result.prediction === "Pathogenic"
-                  ? "prediction pathogenic"
-                  : "prediction benign"
-              }
-            >
-              {result.prediction}
+            <h2 className="results-title">
+              Total Variants: {result.total_variants}
             </h2>
 
-            <p className="confidence">
-              Confidence Score: <strong>{result.confidence}</strong>
-            </p>
+            <div className="table-container">
 
-            {result.model_breakdown && (
-              <div className="model-box">
-                <h3>Model Breakdown</h3>
-                <p>XGBoost: {result.model_breakdown.xgboost}</p>
-              </div>
-            )}
+              <table className="variant-table">
+                <thead>
+                  <tr>
+                    <th>Chr</th>
+                    <th>Position</th>
+                    <th>Ref</th>
+                    <th>Alt</th>
+                    <th>Prediction</th>
+                    <th>Confidence</th>
+                  </tr>
+                </thead>
 
-            {result.explanation && (
-              <div className="shap-box">
-                <h3>Feature Contribution (SHAP)</h3>
+                <tbody>
+                  {result.results.map((variant, index) => (
+                    <React.Fragment key={index}>
+                      <tr
+                        className="variant-row"
+                        onClick={() => toggleVariant(index)}
+                      >
+                        <td>{variant.Chr}</td>
+                        <td>{variant.Start}</td>
+                        <td>{variant.Ref}</td>
+                        <td>{variant.Alt}</td>
 
-                {Object.entries(result.explanation).map(([key, value]) => (
-                  <div key={key} className="shap-item">
-                    <span>{key}</span>
-                    <span>{Number(value).toFixed(3)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+                        <td
+                          className={
+                            variant.prediction === "Pathogenic"
+                              ? "pathogenic"
+                              : "benign"
+                          }
+                        >
+                          {variant.prediction}
+                        </td>
+
+                        <td>{variant.confidence}</td>
+                      </tr>
+
+                      {selectedVariant === index && (
+                        <tr className="shap-row">
+                          <td colSpan="6">
+
+                            <div className="shap-box">
+
+                              <h3>Feature Contribution (SHAP)</h3>
+
+                              {Object.entries(variant.explanation).map(
+                                ([key, value]) => (
+                                  <div key={key} className="shap-item">
+                                    <span>{key}</span>
+                                    <span>{Number(value).toFixed(3)}</span>
+                                  </div>
+                                )
+                              )}
+
+                            </div>
+
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+
+              </table>
+
+            </div>
 
           </div>
         )}
