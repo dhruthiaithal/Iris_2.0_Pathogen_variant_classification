@@ -62,7 +62,6 @@ explainer = shap.TreeExplainer(xgb_model)
 # -------------------------
 
 def run_annovar(vcf_path, output_prefix):
-
     cmd = [
         "perl",
         f"{ANNOVAR_DIR}/table_annovar.pl",
@@ -71,12 +70,11 @@ def run_annovar(vcf_path, output_prefix):
         "-buildver", "hg38",
         "-out", output_prefix,
         "-remove",
-        "-protocol", "refGene,gnomad211_exome,dbnsfp30a",
-        "-operation", "g,f,f",
+        "-protocol", "refGene,gnomad211_exome,dbnsfp30a,clinvar_20250721",
+        "-operation", "g,f,f,f",
         "-nastring", ".",
         "-vcfinput"
     ]
-
     subprocess.run(cmd, check=True)
 
 # -------------------------
@@ -99,7 +97,6 @@ async def predict_variant(file: UploadFile = File(...)):
     # -------------------------
 
     vcf_path = f"{UPLOAD_DIR}/{file.filename}"
-
     with open(vcf_path, "wb") as f:
         f.write(await file.read())
 
@@ -108,9 +105,7 @@ async def predict_variant(file: UploadFile = File(...)):
     # -------------------------
 
     out_prefix = f"{UPLOAD_DIR}/annotated"
-
     run_annovar(vcf_path, out_prefix)
-
     annotated_file = f"{out_prefix}.hg38_multianno.txt"
 
     # -------------------------
@@ -133,25 +128,14 @@ async def predict_variant(file: UploadFile = File(...)):
     }
 
     for model_feature, annovar_feature in feature_map.items():
-
-        if annovar_feature in df.columns:
-            df[model_feature] = df[annovar_feature]
-        else:
-            df[model_feature] = np.nan
+        df[model_feature] = df[annovar_feature] if annovar_feature in df.columns else np.nan
 
     # -------------------------
     # Derived features
     # -------------------------
 
-    # SIFT missing flag
     df["SIFT_missing"] = df["SIFT_score"].isna().astype(int)
-
-    # PolyPhen missing flag
     df["PolyPhen_missing"] = df["PolyPhen_score"].isna().astype(int)
-
-    # -------------------------
-    # Encode variant consequence
-    # -------------------------
 
     consequence_map = {
         "synonymous SNV": 0,
@@ -163,40 +147,30 @@ async def predict_variant(file: UploadFile = File(...)):
         "nonframeshift deletion": 5,
         "nonframeshift insertion": 5
     }
-
-    df["Consequence_encoded"] = df["Consequence_encoded"].map(consequence_map)
+    df["Consequence_encoded"] = df["Consequence_encoded"].map(consequence_map).fillna(0)
 
     # -------------------------
     # Ensure all model features exist
     # -------------------------
 
     missing_features = []
-
     for feature in FEATURES:
         if feature not in df.columns:
             df[feature] = np.nan
             missing_features.append(feature)
 
-    print("Missing features from ANNOVAR:", missing_features)
-
     # -------------------------
     # Prepare ML input
     # -------------------------
 
-    X = df[FEATURES]
-
-    X = X.replace(".", np.nan)
-    X = X.apply(pd.to_numeric, errors="coerce")
-
-    X = X.fillna(X.median())
-    X = X.fillna(0)
+    X = df[FEATURES].replace(".", np.nan).apply(pd.to_numeric, errors="coerce")
+    X = X.fillna(X.median()).fillna(0)
 
     # -------------------------
     # Model Predictions
     # -------------------------
 
     probs = xgb_model.predict_proba(X)[:, 1]
-
     labels = ["Pathogenic" if p >= 0.5 else "Benign" for p in probs]
 
     # -------------------------
@@ -204,39 +178,50 @@ async def predict_variant(file: UploadFile = File(...)):
     # -------------------------
 
     shap_values = explainer.shap_values(X)
-
     results = []
 
     for i in range(len(X)):
 
+        # Top 10 SHAP features
         explanation = dict(zip(FEATURES, shap_values[i].tolist()))
-
         explanation = dict(
-            sorted(
-                explanation.items(),
-                key=lambda x: abs(x[1]),
-                reverse=True
-            )[:10]
+            sorted(explanation.items(), key=lambda x: abs(x[1]), reverse=True)[:10]
         )
+
+        # -------------------------
+        # ClinVar disease extraction (FIXED)
+        # -------------------------
+
+        clinvar_disease = ""
+
+        if labels[i] == "Pathogenic" and "CLNDN" in df.columns:
+            disease = df.iloc[i]["CLNDN"]
+            if pd.notna(disease) and disease != ".":
+                clinvar_disease = disease.split("|")[0].replace("_", " ")
+
+        prob = float(probs[i])
+
+        if labels[i] == "Pathogenic":
+            confidence = round(prob * 100, 2)
+        else:
+            confidence = round((1 - prob) * 100, 2)
 
         variant_result = {
             "variant_index": int(i),
             "prediction": labels[i],
-            "confidence": float(round(float(probs[i]), 3)),
-            "explanation": explanation
+            "confidence": confidence,
+            "explanation": explanation,
+            "clinvar_disease": clinvar_disease
         }
 
-        # Add genomic coordinates
+        # Genomic coordinates
         for col in ["Chr", "Start", "End", "Ref", "Alt"]:
             if col in df.columns:
-
                 value = df.iloc[i][col]
-
                 if isinstance(value, (np.integer, np.int64)):
                     value = int(value)
                 elif isinstance(value, (np.floating, np.float64)):
                     value = float(value)
-
                 variant_result[col] = value
 
         results.append(variant_result)

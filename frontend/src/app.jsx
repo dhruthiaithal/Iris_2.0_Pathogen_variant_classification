@@ -53,6 +53,47 @@ export default function App() {
     setSelectedVariant(selectedVariant === index ? null : index);
   };
 
+  // -------------------------
+  // CSV DOWNLOAD FUNCTION
+  // -------------------------
+
+  const downloadCSV = () => {
+    if (!result || !result.results) return;
+
+    const headers = [
+      "Chr",
+      "Position",
+      "Ref",
+      "Alt",
+      "Prediction",
+      "Confidence",
+      "Disease",
+    ];
+
+    const rows = result.results.map((variant) => [
+      variant.Chr,
+      variant.Start,
+      variant.Ref,
+      variant.Alt,
+      variant.prediction,
+      variant.confidence,
+      variant.clinvar_disease || "",
+    ]);
+
+    const csvContent =
+      [headers, ...rows].map((row) => row.join(",")).join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "variant_predictions.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="app">
       <div className="card">
@@ -101,9 +142,28 @@ export default function App() {
               Total Variants: {result.total_variants}
             </h2>
 
+            {/* CSV Download Button */}
+
+            <button
+              className="download-btn"
+              onClick={downloadCSV}
+              style={{
+                marginBottom: "15px",
+                padding: "10px 18px",
+                backgroundColor: "#2c7be5",
+                color: "white",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+              }}
+            >
+              Download Results (CSV)
+            </button>
+
             <div className="table-container">
 
               <table className="variant-table">
+
                 <thead>
                   <tr>
                     <th>Chr</th>
@@ -112,6 +172,7 @@ export default function App() {
                     <th>Alt</th>
                     <th>Prediction</th>
                     <th>Confidence</th>
+                    <th>Disease</th>
                   </tr>
                 </thead>
 
@@ -137,12 +198,18 @@ export default function App() {
                           {variant.prediction}
                         </td>
 
-                        <td>{variant.confidence}</td>
+                        <td>{variant.confidence}%</td>
+
+                        <td>
+                          {variant.clinvar_disease
+                            ? variant.clinvar_disease
+                            : "-"}
+                        </td>
                       </tr>
 
                       {selectedVariant === index && (
                         <tr className="shap-row">
-                          <td colSpan="6">
+                          <td colSpan="7">
 
                             <div className="shap-box">
 
@@ -155,6 +222,13 @@ export default function App() {
                                     <span>{Number(value).toFixed(3)}</span>
                                   </div>
                                 )
+                              )}
+
+                              {variant.clinvar_disease && (
+                                <div className="clinvar-disease">
+                                  <strong>Associated Disease(s):</strong>{" "}
+                                  {variant.clinvar_disease}
+                                </div>
                               )}
 
                             </div>

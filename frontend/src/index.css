@@ -1,19 +1,20 @@
-body{
-  margin:0;
-  font-family:"Inter", sans-serif;
-
-  background-image:url("https://petapixel.com/assets/uploads/2015/03/MG_8950.jpg");
-  background-size:cover;
-  background-position:center;
-  background-attachment:fixed;
+body {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  /*background-image:url("https://petapixel.com/assets/uploads/2015/03/MG_8950.jpg");*/
+  background-image:url("https://cdn.pixabay.com/photo/2019/09/15/12/05/dna-4478127_1280.jpg");
+  /*background-image: url("/assets/geralt-dna-4478127.jpg");*/
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
 }
 
-body::before{
-  content:"";
-  position:fixed;
-  inset:0;
-  background:rgba(0,0,0,0.45);
-  z-index:-1;
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: -1;
 }
 
 .app{
@@ -25,7 +26,7 @@ body::before{
 
 .card{
   width:600px;
-  background:white;
+  background:rgb(237, 236, 236);
   border-radius:12px;
   padding:35px;
   box-shadow:0 10px 30px rgba(0,0,0,0.25);
@@ -179,4 +180,35 @@ body::before{
   display:flex;
   justify-content:space-between;
   padding:4px 0;
+}
+
+.clinvar-disease{
+  margin-top:10px;
+  padding:8px;
+  background:#ffe5e5;
+  border-left:4px solid #e63946;
+  border-radius:4px;
+  font-size:14px;
+  color:#b00020;
+}
+
+.variant-table td:last-child {
+  font-weight: 600;
+  color: #b00020;
+}
+
+.download-btn{
+  background:#457b9d;
+  color:white;
+  padding:10px 18px;
+  border:none;
+  border-radius:6px;
+  font-weight:600;
+  cursor:pointer;
+  transition:0.2s;
+  margin-bottom:15px;
+}
+
+.download-btn:hover{
+  background:#35627d;
 }
