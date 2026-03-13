@@ -42,7 +42,7 @@ xgb_model = XGBClassifier()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_DIR = os.path.join(BASE_DIR, "models")
 
-xgb_model.load_model(os.path.join(MODEL_DIR, "xgb_pathogenicity_model.json"))
+xgb_model.load_model(os.path.join(MODEL_DIR, "xgb_pathogenicity_model1.json"))
 
 # -------------------------
 # Load feature list
