@@ -78,6 +78,7 @@ The pathogenicity prediction model is based on XGBoost, trained using functional
 The model outputs a probability of pathogenicity, which is converted into:
 - Pathogenic
 - Benign  
+- Uncertain
 
 Predictions are accompanied by confidence scores and SHAP explanations.
 
