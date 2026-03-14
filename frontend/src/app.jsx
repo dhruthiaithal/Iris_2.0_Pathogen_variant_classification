@@ -53,10 +53,6 @@ export default function App() {
     setSelectedVariant(selectedVariant === index ? null : index);
   };
 
-  // -------------------------
-  // CSV DOWNLOAD FUNCTION
-  // -------------------------
-
   const downloadCSV = () => {
     if (!result || !result.results) return;
 
@@ -96,6 +92,9 @@ export default function App() {
 
   return (
     <div className="app">
+
+      {/* MAIN CARD */}
+
       <div className="card">
 
         <h1 className="title">Variant Pathogenicity Classifier</h1>
@@ -142,20 +141,9 @@ export default function App() {
               Total Variants: {result.total_variants}
             </h2>
 
-            {/* CSV Download Button */}
-
             <button
               className="download-btn"
               onClick={downloadCSV}
-              style={{
-                marginBottom: "15px",
-                padding: "10px 18px",
-                backgroundColor: "#2c7be5",
-                color: "white",
-                border: "none",
-                borderRadius: "6px",
-                cursor: "pointer",
-              }}
             >
               Download Results (CSV)
             </button>
@@ -179,6 +167,7 @@ export default function App() {
                 <tbody>
                   {result.results.map((variant, index) => (
                     <React.Fragment key={index}>
+
                       <tr
                         className="variant-row"
                         onClick={() => toggleVariant(index)}
@@ -189,10 +178,12 @@ export default function App() {
                         <td>{variant.Alt}</td>
 
                         <td
-                          className={
-                            variant.prediction === "Pathogenic"
-                              ? "pathogenic"
-                              : "benign"
+                        className={
+                          variant.prediction === "Pathogenic"
+                          ? "pathogenic"
+                          : variant.prediction === "Benign"
+                          ? "benign"
+                          : "uncertain"
                           }
                         >
                           {variant.prediction}
@@ -226,7 +217,7 @@ export default function App() {
 
                               {variant.clinvar_disease && (
                                 <div className="clinvar-disease">
-                                  <strong>Associated Disease(s):</strong>{" "}
+                                  <strong>Associated Disease(s): </strong>
                                   {variant.clinvar_disease}
                                 </div>
                               )}
@@ -236,6 +227,7 @@ export default function App() {
                           </td>
                         </tr>
                       )}
+
                     </React.Fragment>
                   ))}
                 </tbody>
@@ -248,6 +240,70 @@ export default function App() {
         )}
 
       </div>
+
+      {/* HOW IT WORKS */}
+
+      <div className="info-section">
+
+        <h2 className="info-title">How It Works</h2>
+
+        <div className="info-cards">
+
+          <div className="info-card">
+            <h3>Upload VCF</h3>
+            <p>
+              Upload a Variant Call Format file containing genomic variants
+              identified through sequencing pipelines.
+            </p>
+          </div>
+
+          <div className="info-card">
+            <h3>Variant Annotation</h3>
+            <p>
+              Variants are annotated using ANNOVAR with functional scores
+              such as CADD, SIFT, PolyPhen and population frequency data.
+            </p>
+          </div>
+
+          <div className="info-card">
+            <h3>AI Prediction</h3>
+            <p>
+              An XGBoost machine learning model predicts whether the
+              variant is pathogenic or benign.
+            </p>
+          </div>
+
+          <div className="info-card">
+            <h3>Explainable Results</h3>
+            <p>
+              SHAP explainability highlights which biological features
+              contributed most to the prediction.
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* GITHUB FOOTER */}
+
+      <div className="footer">
+
+        <p className="github-title">
+          View the full project on GitHub
+        </p>
+
+        <a
+          className="github-link"
+          href="https://github.com/dhruthiaithal/Iris_2.0_Pathogen_variant_classification"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Pathogen_variant_classification
+        </a>
+
+      </div>
+
     </div>
   );
 }

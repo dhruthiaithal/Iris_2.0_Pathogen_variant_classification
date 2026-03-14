@@ -19,9 +19,10 @@ body::before {
 
 .app{
   display:flex;
-  justify-content:center;
+  flex-direction:column;
   align-items:center;
   min-height:100vh;
+  padding:40px 20px;
 }
 
 .card{
@@ -112,7 +113,11 @@ body::before {
 }
 
 .benign{
-  color:#2a9d8f;
+  color:#2ea294;
+}
+
+.uncertain{
+  color:#e9c46a;
 }
 
 .confidence{
@@ -211,4 +216,47 @@ body::before {
 
 .download-btn:hover{
   background:#35627d;
+}
+.info-section{
+  width:600px;
+  margin-top:40px;
+}
+
+.info-title{
+  text-align:center;
+  color:white;
+  margin-bottom:20px;
+}
+
+.info-cards{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:15px;
+}
+
+.info-card{
+  background:white;
+  padding:18px;
+  border-radius:10px;
+  box-shadow:0 5px 15px rgba(0,0,0,0.2);
+}
+
+.footer{
+  margin-top:30px;
+  text-align:center;
+}
+
+.github-title{
+  color:white;
+  font-size:16px;
+}
+
+.github-link{
+  color:white;
+  font-weight:600;
+  text-decoration:none;
+}
+
+.github-link:hover{
+  text-decoration:underline;
 }

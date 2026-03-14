@@ -147,6 +147,7 @@ async def predict_variant(file: UploadFile = File(...)):
         "nonframeshift deletion": 5,
         "nonframeshift insertion": 5
     }
+
     df["Consequence_encoded"] = df["Consequence_encoded"].map(consequence_map).fillna(0)
 
     # -------------------------
@@ -164,6 +165,11 @@ async def predict_variant(file: UploadFile = File(...)):
     # -------------------------
 
     X = df[FEATURES].replace(".", np.nan).apply(pd.to_numeric, errors="coerce")
+
+    # Detect rows where all predictors are missing
+    predictor_columns = ["CADD_score", "SIFT_score", "PolyPhen_score", "gnomAD_AF", "Conservation_score"]
+    missing_predictors_mask = X[predictor_columns].isna().all(axis=1)
+
     X = X.fillna(X.median()).fillna(0)
 
     # -------------------------
@@ -178,50 +184,65 @@ async def predict_variant(file: UploadFile = File(...)):
     # -------------------------
 
     shap_values = explainer.shap_values(X)
+
     results = []
 
     for i in range(len(X)):
 
-        # Top 10 SHAP features
-        explanation = dict(zip(FEATURES, shap_values[i].tolist()))
-        explanation = dict(
-            sorted(explanation.items(), key=lambda x: abs(x[1]), reverse=True)[:10]
-        )
+        # -------------------------
+        # Handle missing predictors
+        # -------------------------
+
+        if missing_predictors_mask.iloc[i]:
+            prediction = "Uncertain Significance"
+            confidence = 0
+            explanation = {}
+        else:
+            prediction = labels[i]
+
+            prob = float(probs[i])
+            if prediction == "Pathogenic":
+                confidence = round(prob * 100, 2)
+            else:
+                confidence = round((1 - prob) * 100, 2)
+
+            explanation = dict(zip(FEATURES, shap_values[i].tolist()))
+            explanation = dict(
+                sorted(explanation.items(), key=lambda x: abs(x[1]), reverse=True)[:10]
+            )
 
         # -------------------------
-        # ClinVar disease extraction (FIXED)
+        # ClinVar disease extraction
         # -------------------------
 
         clinvar_disease = ""
 
-        if labels[i] == "Pathogenic" and "CLNDN" in df.columns:
+        if prediction == "Pathogenic" and "CLNDN" in df.columns:
             disease = df.iloc[i]["CLNDN"]
             if pd.notna(disease) and disease != ".":
                 clinvar_disease = disease.split("|")[0].replace("_", " ")
 
-        prob = float(probs[i])
-
-        if labels[i] == "Pathogenic":
-            confidence = round(prob * 100, 2)
-        else:
-            confidence = round((1 - prob) * 100, 2)
-
         variant_result = {
             "variant_index": int(i),
-            "prediction": labels[i],
+            "prediction": prediction,
             "confidence": confidence,
             "explanation": explanation,
             "clinvar_disease": clinvar_disease
         }
 
-        # Genomic coordinates
+        # -------------------------
+        # Add genomic coordinates
+        # -------------------------
+
         for col in ["Chr", "Start", "End", "Ref", "Alt"]:
             if col in df.columns:
                 value = df.iloc[i][col]
+
                 if isinstance(value, (np.integer, np.int64)):
                     value = int(value)
                 elif isinstance(value, (np.floating, np.float64)):
                     value = float(value)
+
                 variant_result[col] = value
 
         results.append(variant_result)
