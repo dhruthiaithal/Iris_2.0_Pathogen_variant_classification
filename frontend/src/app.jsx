@@ -1,6 +1,7 @@
 import React, { useState, useRef } from "react";
 
 export default function App() {
+
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -18,6 +19,7 @@ export default function App() {
   };
 
   const uploadVCF = async () => {
+
     if (!file) {
       setError("Please upload a VCF file.");
       return;
@@ -28,78 +30,88 @@ export default function App() {
     setResult(null);
 
     try {
+
       const formData = new FormData();
       formData.append("file", file);
 
-      const res = await fetch("http://127.0.0.1:8000/predict", {
-        method: "POST",
-        body: formData,
-      });
+      const res = await fetch(
+        "http://127.0.0.1:8000/predict",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       if (!res.ok) {
-        throw new Error("Server error. Check backend logs.");
+        throw new Error(
+          "Server error. Check backend logs."
+        );
       }
 
       const data = await res.json();
+
       setResult(data);
+
     } catch (err) {
+
       setError(err.message);
+
     }
 
     setLoading(false);
   };
 
   const toggleVariant = (index) => {
-    setSelectedVariant(selectedVariant === index ? null : index);
+
+    setSelectedVariant(
+      selectedVariant === index ? null : index
+    );
   };
 
-  const downloadCSV = () => {
-    if (!result || !result.results) return;
+  const downloadCSV = async () => {
 
-    const headers = [
-      "Chr",
-      "Position",
-      "Ref",
-      "Alt",
-      "Prediction",
-      "Confidence",
-      "Disease",
-    ];
+    try {
 
-    const rows = result.results.map((variant) => [
-      variant.Chr,
-      variant.Start,
-      variant.Ref,
-      variant.Alt,
-      variant.prediction,
-      variant.confidence,
-      variant.clinvar_disease || "",
-    ]);
+      const response = await fetch(
+        result.important_variants_csv
+      );
 
-    const csvContent =
-      [headers, ...rows].map((row) => row.join(",")).join("\n");
+      const blob = await response.blob();
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(blob);
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "variant_predictions.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const a = document.createElement("a");
+
+      a.href = url;
+
+      a.download = "important_variants.csv";
+
+      document.body.appendChild(a);
+
+      a.click();
+
+      a.remove();
+
+    } catch (err) {
+
+      console.error(err);
+
+    }
   };
 
   return (
-    <div className="app">
 
-      {/* MAIN CARD */}
+    <div className="app">
 
       <div className="card">
 
-        <h1 className="title">Variant Pathogenicity Classifier</h1>
+        <h1 className="title">
+          Variant Pathogenicity Classifier
+        </h1>
+
         <p className="subtitle">
-          Upload a VCF file to predict whether variants are pathogenic.
+          Upload a VCF file to predict whether
+          variants are pathogenic.
         </p>
 
         <input
@@ -112,13 +124,17 @@ export default function App() {
 
         <div className="upload-section">
 
-          <button className="upload-btn" onClick={openFileDialog}>
+          <button
+            className="upload-btn"
+            onClick={openFileDialog}
+          >
             Upload VCF File
           </button>
 
           {file && (
             <p className="filename">
-              Selected file: <strong>{file.name}</strong>
+              Selected file:
+              <strong> {file.name}</strong>
             </p>
           )}
 
@@ -127,25 +143,84 @@ export default function App() {
             onClick={uploadVCF}
             disabled={!file || loading}
           >
-            {loading ? "Analyzing Variants..." : "Analyze Variants"}
+            {loading
+              ? "Analyzing Variants..."
+              : "Analyze Variants"}
           </button>
 
         </div>
 
-        {error && <p className="error">{error}</p>}
+        {error && (
+          <p className="error">{error}</p>
+        )}
 
         {result && (
+
           <div className="result">
 
             <h2 className="results-title">
-              Total Variants: {result.total_variants}
+              Total Variants:
+              {" "}
+              {result.total_variants}
             </h2>
+
+            {/* GRS Section */}
+
+            <div className="grs-box">
+
+              <h2>
+                Breast Cancer Genetic Risk Score
+              </h2>
+
+              <div className="grs-score">
+                {result.breast_cancer_genetic_risk.grs}
+              </div>
+
+              <div className="risk-tier">
+
+                Risk Tier:
+
+                <span
+                  className={
+                    result.breast_cancer_genetic_risk
+                      .risk_tier === "Very High Risk"
+                      ? "very-high"
+                      : result.breast_cancer_genetic_risk
+                          .risk_tier === "High Risk"
+                      ? "high"
+                      : result.breast_cancer_genetic_risk
+                          .risk_tier === "Moderate Risk"
+                      ? "moderate"
+                      : "low"
+                  }
+                >
+                  {" "}
+                  {
+                    result
+                      .breast_cancer_genetic_risk
+                      .risk_tier
+                  }
+                </span>
+
+              </div>
+
+              <p className="grs-interpretation">
+
+                {
+                  result
+                    .breast_cancer_genetic_risk
+                    .interpretation
+                }
+
+              </p>
+
+            </div>
 
             <button
               className="download-btn"
               onClick={downloadCSV}
             >
-              Download Results (CSV)
+              Download Important Variants CSV
             </button>
 
             <div className="table-container">
@@ -153,6 +228,7 @@ export default function App() {
               <table className="variant-table">
 
                 <thead>
+
                   <tr>
                     <th>Chr</th>
                     <th>Position</th>
@@ -161,75 +237,139 @@ export default function App() {
                     <th>Prediction</th>
                     <th>Confidence</th>
                     <th>Disease</th>
+                    <th>GRS Contribution</th>
                   </tr>
+
                 </thead>
 
                 <tbody>
-                  {result.results.map((variant, index) => (
+
+                  {result.results.map(
+                    (variant, index) => (
+
                     <React.Fragment key={index}>
 
                       <tr
                         className="variant-row"
-                        onClick={() => toggleVariant(index)}
+                        onClick={() =>
+                          toggleVariant(index)
+                        }
                       >
+
                         <td>{variant.Chr}</td>
                         <td>{variant.Start}</td>
                         <td>{variant.Ref}</td>
                         <td>{variant.Alt}</td>
 
                         <td
-                        className={
-                          variant.prediction === "Pathogenic"
-                          ? "pathogenic"
-                          : variant.prediction === "Benign"
-                          ? "benign"
-                          : "uncertain"
+                          className={
+                            variant.prediction ===
+                            "Pathogenic"
+                              ? "pathogenic"
+                              : variant.prediction ===
+                                "Benign"
+                              ? "benign"
+                              : "uncertain"
                           }
                         >
                           {variant.prediction}
                         </td>
 
-                        <td>{variant.confidence}%</td>
+                        <td>
+                          {variant.confidence}%
+                        </td>
 
                         <td>
-                          {variant.clinvar_disease
+                          {
+                            variant.clinvar_disease
                             ? variant.clinvar_disease
-                            : "-"}
+                            : "-"
+                          }
                         </td>
+
+                        <td>
+                          {
+                            variant.grs_contribution
+                          }
+                        </td>
+
                       </tr>
 
                       {selectedVariant === index && (
+
                         <tr className="shap-row">
-                          <td colSpan="7">
+
+                          <td colSpan="8">
 
                             <div className="shap-box">
 
-                              <h3>Feature Contribution (SHAP)</h3>
+                              <div className="variant-meta">
 
-                              {Object.entries(variant.explanation).map(
+                                <p>
+                                  <strong>Gene:</strong>
+                                  {" "}
+                                  {variant.gene}
+                                </p>
+
+                                <p>
+                                  <strong>
+                                    Consequence:
+                                  </strong>
+                                  {" "}
+                                  {
+                                    variant.consequence
+                                  }
+                                </p>
+
+                                <p>
+                                  <strong>
+                                    Pathogenicity Probability:
+                                  </strong>
+                                  {" "}
+                                  {
+                                    variant.pathogenicity_probability
+                                  }
+                                </p>
+
+                              </div>
+
+                              <h3>
+                                Feature Contribution
+                                (SHAP)
+                              </h3>
+
+                              {Object.entries(
+                                variant.explanation
+                              ).map(
                                 ([key, value]) => (
-                                  <div key={key} className="shap-item">
-                                    <span>{key}</span>
-                                    <span>{Number(value).toFixed(3)}</span>
-                                  </div>
-                                )
-                              )}
 
-                              {variant.clinvar_disease && (
-                                <div className="clinvar-disease">
-                                  <strong>Associated Disease(s): </strong>
-                                  {variant.clinvar_disease}
+                                <div
+                                  key={key}
+                                  className="shap-item"
+                                >
+
+                                  <span>{key}</span>
+
+                                  <span>
+                                    {
+                                      Number(value)
+                                      .toFixed(3)
+                                    }
+                                  </span>
+
                                 </div>
-                              )}
+                              ))}
 
                             </div>
 
                           </td>
+
                         </tr>
                       )}
 
                     </React.Fragment>
                   ))}
+
                 </tbody>
 
               </table>
@@ -238,69 +378,6 @@ export default function App() {
 
           </div>
         )}
-
-      </div>
-
-      {/* HOW IT WORKS */}
-
-      <div className="info-section">
-
-        <h2 className="info-title">How It Works</h2>
-
-        <div className="info-cards">
-
-          <div className="info-card">
-            <h3>Upload VCF</h3>
-            <p>
-              Upload a Variant Call Format file containing genomic variants
-              identified through sequencing pipelines.
-            </p>
-          </div>
-
-          <div className="info-card">
-            <h3>Variant Annotation</h3>
-            <p>
-              Variants are annotated using ANNOVAR with functional scores
-              such as CADD, SIFT, PolyPhen and population frequency data.
-            </p>
-          </div>
-
-          <div className="info-card">
-            <h3>AI Prediction</h3>
-            <p>
-              An XGBoost machine learning model predicts whether the
-              variant is pathogenic or benign.
-            </p>
-          </div>
-
-          <div className="info-card">
-            <h3>Explainable Results</h3>
-            <p>
-              SHAP explainability highlights which biological features
-              contributed most to the prediction.
-            </p>
-          </div>
-
-        </div>
-
-      </div>
-
-      {/* GITHUB FOOTER */}
-
-      <div className="footer">
-
-        <p className="github-title">
-          View the full project on GitHub
-        </p>
-
-        <a
-          className="github-link"
-          href="https://github.com/dhruthiaithal/Iris_2.0_Pathogen_variant_classification"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Pathogen_variant_classification
-        </a>
 
       </div>
 
